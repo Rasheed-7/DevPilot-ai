@@ -205,6 +205,7 @@ const Profile = () => {
       }
 
       try {
+        // ✅ Fetch profile data
         const { data } = await api.get("/profile");
 
         if (data && data.success) {
@@ -219,11 +220,6 @@ const Profile = () => {
             data.goals ||
             [];
 
-          const resumeData =
-            data.data?.resume ||
-            data.resume ||
-            null;
-
           if (userData) {
             setProfile(userData);
 
@@ -237,7 +233,6 @@ const Profile = () => {
             );
 
             setGoals(goalsData);
-            setResume(resumeData);
 
             setProfileCompletion(
               userData.profileCompletion || 0
@@ -279,7 +274,40 @@ const Profile = () => {
       }
     };
 
-    fetchProfile(true);
+    // ✅ Fetch resumes separately to get the latest personal resume
+    const fetchResumes = async () => {
+      try {
+        const { data } = await api.get("/resumes");
+        const resumes = data?.resumes || data || [];
+
+        // ✅ Filter: only "mine" (personal) and NOT archived
+        const personalResumes = resumes.filter(
+          (r) => r.resumeType === "mine" && !r.isArchived
+        );
+
+        // ✅ Sort by newest first (updatedAt or createdAt)
+        const sorted = personalResumes.sort((a, b) => {
+          const dateA = new Date(a.updatedAt || a.createdAt);
+          const dateB = new Date(b.updatedAt || b.createdAt);
+          return dateB - dateA;
+        });
+
+        // ✅ Set the latest personal resume, or null if none
+        setResume(sorted.length > 0 ? sorted[0] : null);
+      } catch (error) {
+        console.error("Error fetching resumes for profile:", error);
+        // Do not show toast here to avoid spamming the user
+        setResume(null);
+      }
+    };
+
+    // ✅ Fetch both in parallel
+    const loadAll = async () => {
+      await Promise.all([fetchProfile(true), fetchResumes()]);
+      setLoading(false);
+    };
+
+    loadAll();
 
     return () => {
       mounted = false;
@@ -288,6 +316,7 @@ const Profile = () => {
 
   const refreshProfile = async () => {
     try {
+      // ✅ Refresh profile data
       const { data } = await api.get("/profile");
 
       if (data.success) {
@@ -302,11 +331,6 @@ const Profile = () => {
           data.goals ||
           [];
 
-        const resumeData =
-          data.data?.resume ||
-          data.resume ||
-          null;
-
         if (userData) {
           setProfile(userData);
 
@@ -320,7 +344,6 @@ const Profile = () => {
           );
 
           setGoals(goalsData);
-          setResume(resumeData);
 
           setProfileCompletion(
             userData.profileCompletion || 0
@@ -330,6 +353,22 @@ const Profile = () => {
           setError(null);
         }
       }
+
+      // ✅ Refresh resumes
+      const { data: resumeData } = await api.get("/resumes");
+      const resumes = resumeData?.resumes || resumeData || [];
+
+      const personalResumes = resumes.filter(
+        (r) => r.resumeType === "mine" && !r.isArchived
+      );
+
+      const sorted = personalResumes.sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.createdAt);
+        const dateB = new Date(b.updatedAt || b.createdAt);
+        return dateB - dateA;
+      });
+
+      setResume(sorted.length > 0 ? sorted[0] : null);
     } catch (error) {
       console.error("Refresh failed:", error);
       toast.error("Failed to refresh profile");
@@ -1500,6 +1539,7 @@ const Profile = () => {
         )}
       </Card>
 
+      {/* ✅ RESUME CARD – now shows only personal, non-archived, latest resume */}
       <Card
         title="Resume"
         icon={FileText}
@@ -1532,7 +1572,7 @@ const Profile = () => {
               >
                 Last Updated:{" "}
                 {new Date(
-                  resume.updatedAt
+                  resume.updatedAt || resume.createdAt
                 ).toLocaleDateString(
                   "en-US",
                   {
