@@ -7,12 +7,10 @@ const MainLayout = () => {
   const { darkMode } = useTheme();
 
   return (
-    <div className={`flex h-screen overflow-hidden ${darkMode ? "bg-slate-950" : "bg-gray-100"}`}>
-      {/* Sidebar - fixed, doesn't scroll */}
+    <div className={`flex h-screen ${darkMode ? "bg-slate-950" : "bg-gray-100"}`}>
       <Sidebar />
 
-      {/* Main content area - scrollable */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col min-w-0">
         <Navbar />
 
         <main
