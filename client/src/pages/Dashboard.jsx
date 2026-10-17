@@ -1,519 +1,1786 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import toast from "react-hot-toast";
+
 import {
-  Briefcase,
-  FileText,
-  Video,
-  Code2,
   ArrowUpRight,
-  Target,
+  BarChart3,
+  Briefcase,
   Calendar,
-  Upload,
-  Sparkles,
-  Clock,
   CheckCircle2,
-  AlertCircle,
+  ChevronRight,
+  Clock,
+  Code2,
+  FileText,
+  RefreshCw,
+  Sparkles,
+  Target,
   TrendingUp,
+  Video,
+  Activity,
+  Layers,
 } from "lucide-react";
 
-// ===== Card Component =====
-const Card = ({ children, className = "" }) => {
-  const { darkMode } = useTheme();
-  return (
-    <div
-      className={`rounded-2xl border p-5 ${darkMode ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'} ${className}`}
-    >
-      {children}
-    </div>
-  );
-};
+// ============================================================
+// Helpers
+// ============================================================
 
-// ===== Stat Card =====
-const StatCard = ({ title, value, icon: Icon, color = "indigo" }) => {
-  const { darkMode } = useTheme();
-  const colorClasses = {
-    indigo: darkMode ? 'text-indigo-400' : 'text-indigo-600',
-    green: darkMode ? 'text-green-400' : 'text-green-600',
-    blue: darkMode ? 'text-blue-400' : 'text-blue-600',
-    purple: darkMode ? 'text-purple-400' : 'text-purple-600',
-  };
+const formatRelativeTime = (date) => {
+  if (!date) return "recently";
 
-  return (
-    <Card>
-      <div className="flex items-center justify-between">
-        <Icon className={colorClasses[color]} size={24} />
-      </div>
-      <p className={`mt-3 text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-        {title}
-      </p>
-      <h2 className={`mt-1 text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-        {value}
-      </h2>
-    </Card>
-  );
-};
+  const now = new Date();
+  const diff = now - new Date(date);
 
-// ===== Activity Item =====
-const ActivityItem = ({ activity }) => {
-  const { darkMode } = useTheme();
-  const iconMap = {
-    application: Briefcase,
-    dsa: Code2,
-    interview: Video,
-    resume: FileText,
-    goal: Target,
-  };
-  const Icon = iconMap[activity.type] || Briefcase;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
 
-  const formatRelativeTime = (date) => {
-    const now = new Date();
-    const diff = now - new Date(date);
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 7) {
-      return new Date(date).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    }
-    if (days > 0) return `${days} day${days > 1 ? 's' : ''} ago`;
-    if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-    return "just now";
-  };
-
-  return (
-    <div
-      className={`flex items-center gap-3 border-b pb-3 last:border-b-0 last:pb-0 ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}
-    >
-      <div className={`p-1.5 rounded-lg shrink-0 ${darkMode ? 'bg-slate-800' : 'bg-gray-100'}`}>
-        <Icon size={16} className={darkMode ? 'text-indigo-400' : 'text-indigo-600'} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`font-medium truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          {activity.title}
-        </p>
-        <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-          {formatRelativeTime(activity.time)}
-        </p>
-      </div>
-    </div>
-  );
-};
-
-// ===== Smart Greeting =====
-const SmartGreeting = ({ name }) => {
-  const { darkMode } = useTheme();
-
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return { text: "Good morning", emoji: "🌅" };
-    if (hour < 17) return { text: "Good afternoon", emoji: "☀️" };
-    if (hour < 21) return { text: "Good evening", emoji: "🌇" };
-    return { text: "Good night", emoji: "🌙" };
-  };
-
-  const quotes = [
-    "Every expert was once a beginner. Keep going!",
-    "Success is the sum of small efforts repeated daily.",
-    "Your future is created by what you do today, not tomorrow.",
-    "The only way to do great work is to love what you do.",
-    "You don't have to be great to start, but you have to start to be great.",
-    "Believe you can and you're halfway there.",
-    "The best time to apply was yesterday. The next best time is now.",
-    "Small daily improvements lead to stunning results over time.",
-  ];
-
-  const [randomQuote] = useState(() => {
-    return quotes[Math.floor(Math.random() * quotes.length)];
-  });
-
-  const greeting = getGreeting();
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-6"
-    >
-      <div className="flex items-center gap-3">
-        <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          {greeting.text}{name ? `, ${name}` : ""}! {greeting.emoji}
-        </h1>
-        <Sparkles size={20} className={darkMode ? 'text-indigo-400' : 'text-indigo-500'} />
-      </div>
-      <p className={`mt-2 text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'} italic flex items-center gap-2`}>
-        <span>“{randomQuote}”</span>
-      </p>
-    </motion.div>
-  );
-};
-
-// ===== Upcoming Deadlines =====
-const UpcomingDeadlines = ({ interviews, goals }) => {
-  const { darkMode } = useTheme();
-  const navigate = useNavigate();
-
-  const formatDate = (date) => {
-    const d = new Date(date);
-    const now = new Date();
-    const diff = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
-    if (diff === 0) return "Today";
-    if (diff === 1) return "Tomorrow";
-    if (diff < 0) return `${Math.abs(diff)} days ago`;
-    return `In ${diff} days`;
-  };
-
-  const deadlines = [];
-
-  interviews.forEach((interview) => {
-    deadlines.push({
-      id: interview._id,
-      type: "interview",
-      title: `Interview with ${interview.company}`,
-      date: interview.date,
-      time: interview.time,
-      formattedDate: formatDate(interview.date),
-      priority: "high",
-      route: "/interviews",
+  if (days > 7) {
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
-  });
-
-  goals.forEach((goal) => {
-    if (goal.deadline) {
-      deadlines.push({
-        id: goal._id,
-        type: "goal",
-        title: `Goal: ${goal.title}`,
-        date: goal.deadline,
-        time: null,
-        formattedDate: formatDate(goal.deadline),
-        priority: goal.priority === "High" ? "high" : "normal",
-        route: "/goals",
-      });
-    }
-  });
-
-  deadlines.sort((a, b) => new Date(a.date) - new Date(b.date));
-  const upcoming = deadlines.slice(0, 5);
-
-  if (upcoming.length === 0) {
-    return (
-      <Card className="h-full flex flex-col items-center justify-center text-center py-8">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar size={20} className={darkMode ? 'text-indigo-400' : 'text-indigo-600'} />
-          <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-            Upcoming Deadlines
-          </h2>
-        </div>
-        <CheckCircle2 size={32} className="mx-auto mb-2 opacity-50" />
-        <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>No upcoming deadlines! 🎉</p>
-        <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>You're all caught up.</p>
-      </Card>
-    );
   }
 
-  return (
-    <Card className="h-full">
-      <div className="flex items-center gap-2 mb-4">
-        <Calendar size={20} className={darkMode ? 'text-indigo-400' : 'text-indigo-600'} />
-        <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          Upcoming Deadlines
-        </h2>
-        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${darkMode ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
-          {upcoming.length}
-        </span>
-      </div>
-      <div className="space-y-3">
-        {upcoming.map((item) => (
-          <motion.div
-            key={item.id}
-            whileHover={{ scale: 1.02, x: 4 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => navigate(item.route)}
-            className={`flex items-center justify-between rounded-lg border p-3 cursor-pointer transition-all ${darkMode ? 'border-slate-800 hover:border-indigo-500/50' : 'border-gray-200 hover:border-indigo-400'}`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className={`p-1.5 rounded-lg shrink-0 ${
-                item.type === 'interview' 
-                  ? darkMode ? 'bg-blue-500/20' : 'bg-blue-100'
-                  : darkMode ? 'bg-purple-500/20' : 'bg-purple-100'
-              }`}>
-                {item.type === 'interview' ? (
-                  <Video size={16} className={darkMode ? 'text-blue-400' : 'text-blue-600'} />
-                ) : (
-                  <Target size={16} className={darkMode ? 'text-purple-400' : 'text-purple-600'} />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className={`text-sm font-medium truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                  {item.title}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <Clock size={12} className={darkMode ? 'text-slate-500' : 'text-gray-400'} />
-                  <span className={`text-xs ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                    {item.formattedDate}
-                    {item.time && ` at ${item.time}`}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {item.priority === 'high' && (
-              <AlertCircle size={16} className="text-red-400 shrink-0 ml-2" />
-            )}
-            <ArrowUpRight size={16} className={`shrink-0 ml-2 ${darkMode ? 'text-slate-600' : 'text-gray-400'}`} />
-          </motion.div>
-        ))}
-      </div>
-    </Card>
-  );
+  if (days > 0) {
+    return `${days} day${days > 1 ? "s" : ""} ago`;
+  }
+
+  if (hours > 0) {
+    return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+  }
+
+  return "just now";
 };
 
-// ===== Quick Actions =====
-const QuickActions = () => {
-  const { darkMode } = useTheme();
-  const navigate = useNavigate();
+const formatDeadlineDate = (date) => {
+  if (!date) return "Scheduled";
 
-  const actions = [
-    { label: "Add Job", icon: Briefcase, path: "/jobs", color: "indigo" },
-    { label: "Add DSA", icon: Code2, path: "/dsa", color: "purple" },
-    { label: "Add Interview", icon: Video, path: "/interviews", color: "blue" },
-    { label: "Add Goal", icon: Target, path: "/goals", color: "green" },
-    { label: "Upload Resume", icon: Upload, path: "/resumes", color: "cyan" },
-  ];
+  const target = new Date(date);
+  const now = new Date();
 
-  const colorMap = {
-    indigo: darkMode ? 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200',
-    purple: darkMode ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border-purple-500/20' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 border-purple-200',
-    blue: darkMode ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border-blue-500/20' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200',
-    green: darkMode ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20 border-green-500/20' : 'bg-green-50 text-green-600 hover:bg-green-100 border-green-200',
-    cyan: darkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100 border-cyan-200',
-  };
-
-  return (
-    <Card className="flex flex-col">
-      <div className="flex items-center gap-2 mb-4">
-        <Sparkles size={20} className={darkMode ? 'text-indigo-400' : 'text-indigo-600'} />
-        <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          Quick Actions
-        </h2>
-      </div>
-      <div className="flex-1 flex flex-col justify-center gap-3">
-        <div className="grid grid-cols-3 gap-2">
-          {actions.slice(0, 3).map((action) => (
-            <motion.button
-              key={action.label}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate(action.path)}
-              className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-3 text-xs font-medium transition-all ${colorMap[action.color]} ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}
-            >
-              <action.icon size={20} />
-              <span className="text-center leading-tight">{action.label}</span>
-            </motion.button>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2 mx-auto w-full max-w-[66.666%]">
-          {actions.slice(3).map((action) => (
-            <motion.button
-              key={action.label}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate(action.path)}
-              className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border px-1 py-3 text-xs font-medium transition-all ${colorMap[action.color]} ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}
-            >
-              <action.icon size={20} />
-              <span className="text-center leading-tight">{action.label}</span>
-            </motion.button>
-          ))}
-        </div>
-      </div>
-    </Card>
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
   );
+
+  const targetDay = new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    target.getDate()
+  );
+
+  const diffDays = Math.round(
+    (targetDay - today) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+
+  if (diffDays < 0) {
+    return `${Math.abs(diffDays)} day${
+      Math.abs(diffDays) > 1 ? "s" : ""
+    } ago`;
+  }
+
+  if (diffDays <= 7) {
+    return `In ${diffDays} days`;
+  }
+
+  return target.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 };
 
-// ===== Main Dashboard =====
+// ============================================================
+// Dashboard
+// ============================================================
+
 const Dashboard = () => {
   const { darkMode } = useTheme();
   const { user } = useAuth();
+  const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [dashboardData, setDashboardData] = useState({
-    stats: { activeJobs: 0, resumes: 0, interviews: 0, dsaProblems: 0 },
-    quickStats: { goalsCompleted: 0, successRate: 0, interviews: 0, offers: 0 },
+    stats: {
+      activeJobs: 0,
+      resumes: 0,
+      interviews: 0,
+      dsaProblems: 0,
+    },
+
+    quickStats: {
+      goalsCompleted: 0,
+      successRate: 0,
+      interviews: 0,
+      offers: 0,
+    },
+
     recentActivity: [],
     activeGoals: [],
     upcomingInterviews: [],
     totalApplications: 0,
   });
 
-  useEffect(() => {
-    const fetchDashboard = async () => {
-      setLoading(true);
-      setError(null);
+  // ============================================================
+  // Fetch Dashboard
+  // ============================================================
+
+  const fetchDashboard = useCallback(
+    async (signal, isRetry = false) => {
       try {
-        const { data } = await api.get("/dashboard");
-        if (data.success) {
-          setDashboardData(data.data);
-        } else {
-          setError(data.message || "Failed to load dashboard");
-          toast.error(data.message || "Failed to load dashboard");
+        /*
+         * On initial mount loading is already true.
+         *
+         * Only set loading/error here for an explicit retry.
+         * This avoids the synchronous setState-in-effect warning.
+         */
+        if (isRetry) {
+          setLoading(true);
+          setError(null);
         }
-      } catch (error) {
-        console.error("Dashboard fetch error:", error);
-        const message = error.response?.data?.message || "Failed to load dashboard";
+
+        const response = await api.get("/dashboard", {
+          signal,
+        });
+
+        if (signal?.aborted) {
+          return;
+        }
+
+        const data = response?.data;
+
+        if (data?.success) {
+          const incoming = data?.data || {};
+
+          setDashboardData({
+            stats: {
+              activeJobs:
+                Number(incoming?.stats?.activeJobs) || 0,
+
+              resumes:
+                Number(incoming?.stats?.resumes) || 0,
+
+              interviews:
+                Number(incoming?.stats?.interviews) || 0,
+
+              dsaProblems:
+                Number(incoming?.stats?.dsaProblems) || 0,
+            },
+
+            quickStats: {
+              goalsCompleted:
+                Number(
+                  incoming?.quickStats?.goalsCompleted
+                ) || 0,
+
+              successRate:
+                Number(
+                  incoming?.quickStats?.successRate
+                ) || 0,
+
+              interviews:
+                Number(
+                  incoming?.quickStats?.interviews
+                ) || 0,
+
+              offers:
+                Number(
+                  incoming?.quickStats?.offers
+                ) || 0,
+            },
+
+            recentActivity: Array.isArray(
+              incoming?.recentActivity
+            )
+              ? incoming.recentActivity
+              : [],
+
+            activeGoals: Array.isArray(
+              incoming?.activeGoals
+            )
+              ? incoming.activeGoals
+              : [],
+
+            upcomingInterviews: Array.isArray(
+              incoming?.upcomingInterviews
+            )
+              ? incoming.upcomingInterviews
+              : [],
+
+            totalApplications:
+              Number(incoming?.totalApplications) || 0,
+          });
+        } else {
+          const message =
+            data?.message ||
+            "Failed to load dashboard";
+
+          if (!signal?.aborted) {
+            setError(message);
+            toast.error(message);
+          }
+        }
+      } catch (err) {
+        /*
+         * Axios cancellation
+         */
+        if (
+          err?.name === "AbortError" ||
+          err?.name === "CanceledError" ||
+          err?.code === "ERR_CANCELED"
+        ) {
+          return;
+        }
+
+        if (signal?.aborted) {
+          return;
+        }
+
+        console.error(
+          "Dashboard fetch error:",
+          err
+        );
+
+        const message =
+          err?.response?.data?.message ||
+          "Failed to load dashboard";
+
         setError(message);
         toast.error(message);
       } finally {
-        setLoading(false);
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
       }
+    },
+    []
+  );
+
+  // ============================================================
+  // Initial Dashboard Load
+  // ============================================================
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadDashboard = async () => {
+      await fetchDashboard(controller.signal, false);
     };
 
-    fetchDashboard();
-  }, []);
+    loadDashboard();
+
+    return () => {
+      controller.abort();
+    };
+  }, [fetchDashboard]);
+
+  // ============================================================
+  // Retry
+  // ============================================================
+
+  const handleRetry = useCallback(() => {
+    const controller = new AbortController();
+
+    fetchDashboard(controller.signal, true).finally(() => {
+      controller.abort();
+    });
+  }, [fetchDashboard]);
+
+  // ============================================================
+  // Derived Values
+  // ============================================================
 
   const welcomeName = user?.name || "";
 
+  const pageBackground = darkMode
+    ? "bg-[#07111C] text-slate-100"
+    : "bg-[#F7FAFC] text-slate-900";
+
+  // ============================================================
+  // Activity Icons
+  // ============================================================
+
+  const activityIconMap = {
+    application: Briefcase,
+    dsa: Code2,
+    interview: Video,
+    resume: FileText,
+    goal: Target,
+  };
+
+  // ============================================================
+  // Upcoming Moves
+  // ============================================================
+
+  const upcomingMoves = [
+    ...dashboardData.upcomingInterviews.map(
+      (item) => ({
+        id: item._id,
+        type: "Interview",
+        title: `Interview with ${item.company}`,
+        date: item.date,
+        time: item.time,
+        route: "/interviews",
+        icon: Video,
+        badgeTone: darkMode
+          ? "bg-cyan-500/12 text-cyan-400 border-sky-500/20"
+          : "bg-sky-50 text-sky-700 border-sky-200",
+      })
+    ),
+
+    ...dashboardData.activeGoals
+      .filter((item) => item.deadline)
+      .map((item) => ({
+        id: item._id,
+        type: "Goal Target",
+        title: item.title,
+        date: item.deadline,
+        time: null,
+        route: "/goals",
+        icon: Target,
+        badgeTone: darkMode
+          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+          : "bg-amber-50 text-amber-700 border-amber-200",
+      })),
+  ]
+    .sort(
+      (a, b) =>
+        new Date(a.date) - new Date(b.date)
+    )
+    .slice(0, 5);
+
+  const successRateNum = Math.min(
+    100,
+    Math.max(
+      0,
+      Number(
+        dashboardData.quickStats.successRate
+      ) || 0
+    )
+  );
+
+  // ============================================================
+  // Loading State
+  // ============================================================
+
   if (loading) {
     return (
-      <div className={`flex h-96 items-center justify-center ${darkMode ? 'bg-slate-950' : 'bg-gray-50'}`}>
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
-          <p className={darkMode ? 'text-slate-400' : 'text-gray-500'}>Loading your dashboard...</p>
+      <div
+        className={`flex min-h-screen flex-col items-center justify-center ${pageBackground}`}
+      >
+        <div className="relative flex items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-sky-500/20 border-t-sky-500" />
+
+          <div className="absolute flex h-6 w-6 items-center justify-center text-sky-500">
+            <Code2 size={16} />
+          </div>
         </div>
+
+        <p
+          className={`mt-4 text-xs font-medium tracking-wide uppercase ${
+            darkMode
+              ? "text-slate-400"
+              : "text-slate-500"
+          }`}
+        >
+          Synchronizing Career Workspace...
+        </p>
       </div>
     );
   }
+
+  // ============================================================
+  // Error State
+  // ============================================================
 
   if (error) {
     return (
-      <div className={`flex h-96 flex-col items-center justify-center ${darkMode ? 'bg-slate-950' : 'bg-gray-50'}`}>
-        <p className="text-red-400">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500"
+      <div
+        className={`flex min-h-screen flex-col items-center justify-center px-4 ${pageBackground}`}
+      >
+        <div
+          className={`max-w-md rounded-2xl border p-8 text-center ${
+            darkMode
+              ? "border-rose-500/20 bg-rose-500/5"
+              : "border-rose-200 bg-rose-50"
+          }`}
         >
-          Try Again
-        </button>
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500">
+            <Activity size={24} />
+          </div>
+
+          <h2
+            className={`mt-4 text-lg font-bold ${
+              darkMode
+                ? "text-white"
+                : "text-slate-900"
+            }`}
+          >
+            Unable to Load Workspace Data
+          </h2>
+
+          <p className="mt-2 text-xs leading-relaxed text-rose-400">
+            {error}
+          </p>
+
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-cyan-500"
+          >
+            <RefreshCw size={13} />
+            <span>Retry Connection</span>
+          </button>
+        </div>
       </div>
     );
   }
 
+  // ============================================================
+  // Main Dashboard
+  // ============================================================
+
   return (
-    <div className={`min-h-screen p-4 sm:p-6 ${darkMode ? 'bg-slate-950' : 'bg-gray-50'}`}>
-      {/* Smart Greeting */}
-      <SmartGreeting name={welcomeName} />
-
-      {/* Stats Row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Active Jobs"
-          value={dashboardData.stats.activeJobs}
-          icon={Briefcase}
-          color="indigo"
-        />
-        <StatCard
-          title="Resumes"
-          value={dashboardData.stats.resumes}
-          icon={FileText}
-          color="green"
-        />
-        <StatCard
-          title="Interviews"
-          value={dashboardData.stats.interviews}
-          icon={Video}
-          color="blue"
-        />
-        <StatCard
-          title="DSA Problems"
-          value={dashboardData.stats.dsaProblems}
-          icon={Code2}
-          color="purple"
+    <main
+      className={`min-h-screen pb-16 antialiased transition-colors duration-200 ${pageBackground}`} style={{ fontFamily: '"Inter", "Avenir Next", ui-sans-serif, system-ui, sans-serif' }}
+    >
+      {/* Ambient Light */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div
+          className={`absolute -top-32 left-1/2 h-87.5 w-175 -translate-x-1/2 rounded-full blur-[120px] transition-opacity ${
+            darkMode
+              ? "bg-cyan-600/10 opacity-60"
+              : "bg-cyan-300/25 opacity-70"
+          }`}
         />
       </div>
 
-      {/* Middle Row: Recent Activity + Upcoming Deadlines */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Card>
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp size={20} className={darkMode ? 'text-indigo-400' : 'text-indigo-600'} />
-              <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                Recent Activity
-              </h2>
-            </div>
-            <div className="space-y-4">
-              {dashboardData.recentActivity.length > 0 ? (
-                dashboardData.recentActivity.map((activity, index) => (
-                  <ActivityItem key={index} activity={activity} />
-                ))
-              ) : (
-                <div className={`text-center py-8 ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                  <p>No recent activity yet.</p>
-                  <p className="text-sm mt-1">Start adding jobs, resumes, or solving DSA problems!</p>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
+      <div className="relative z-10 mx-auto max-w-350 px-4 pt-6 sm:px-6 lg:px-8">
+        {/* ====================================================== */}
+        {/* HEADER */}
+        {/* ====================================================== */}
 
-        <div className="lg:col-span-1">
-          <UpcomingDeadlines
-            interviews={dashboardData.upcomingInterviews}
-            goals={dashboardData.activeGoals}
+        <header className="mb-8 flex flex-col gap-5 border-b border-slate-200/80 pb-6 dark:border-slate-800/80 sm:flex-row sm:items-end sm:justify-between">
+          <motion.div
+            initial={{
+              opacity: 0,
+              y: 8,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+            }}
+            transition={{
+              duration: 0.35,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                  darkMode
+                    ? "border-sky-500/30 bg-cyan-500/12 text-sky-300"
+                    : "border-sky-200 bg-sky-50 text-sky-700"
+                }`}
+              >
+                <Sparkles size={11} />
+                <span>
+                  Placement Command Center
+                </span>
+              </span>
+
+              <span
+                className={`text-xs ${
+                  darkMode
+                    ? "text-slate-500"
+                    : "text-slate-400"
+                }`}
+              >
+                •
+              </span>
+
+              <span
+                className={`font-mono text-xs font-medium ${
+                  darkMode
+                    ? "text-slate-400"
+                    : "text-slate-500"
+                }`}
+              >
+                {new Date().toLocaleDateString(
+                  "en-US",
+                  {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  }
+                )}
+              </span>
+            </div>
+
+            <h1
+              className={`mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl ${
+                darkMode
+                  ? "text-white"
+                  : "text-slate-900"
+              }`}
+            >
+              {welcomeName
+                ? `Welcome back, ${welcomeName}`
+                : "Placement Command Center"}
+            </h1>
+
+            <p
+              className={`mt-1.5 max-w-2xl text-xs leading-relaxed sm:text-sm ${
+                darkMode
+                  ? "text-slate-400"
+                  : "text-slate-600"
+              }`}
+            >
+              {dashboardData.totalApplications >
+                0 ||
+              dashboardData.stats.dsaProblems > 0
+                ? "Your real-time placement telemetry, pipeline trajectory, preparation signals, and upcoming commitments."
+                : "Your placement journey starts here. Record applications, track algorithmic mastery, log interviews, and version resumes."}
+            </p>
+          </motion.div>
+
+          {/* Header Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className={`hidden items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium sm:inline-flex ${
+                darkMode
+                  ? "border-slate-800 bg-slate-900/60 text-slate-400"
+                  : "border-slate-200 bg-white text-slate-600"
+              }`}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+
+              <span>Workspace Live</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/jobs")}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                darkMode
+                  ? "border-slate-800 bg-slate-900/80 text-slate-300 hover:border-slate-700 hover:text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Briefcase
+                size={13}
+                className="text-cyan-400"
+              />
+              <span>Jobs</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/dsa")}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                darkMode
+                  ? "border-slate-800 bg-slate-900/80 text-slate-300 hover:border-slate-700 hover:text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Code2
+                size={13}
+                className="text-emerald-400"
+              />
+              <span>DSA</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/interviews")
+              }
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all ${
+                darkMode
+                  ? "border-slate-800 bg-slate-900/80 text-slate-300 hover:border-slate-700 hover:text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <Video
+                size={13}
+                className="text-cyan-400"
+              />
+              <span>Interviews</span>
+            </button>
+          </div>
+        </header>
+
+        {/* ====================================================== */}
+        {/* PIPELINE TELEMETRY */}
+        {/* ====================================================== */}
+
+        <section
+          className={`relative overflow-hidden rounded-2xl border transition-colors ${
+            darkMode
+              ? "border-slate-800/90 bg-linear-to-b from-slate-900/80 to-[#0B0F17] shadow-xl shadow-black/40"
+              : "border-slate-200/90 bg-white shadow-md shadow-slate-200/60"
+          }`}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 opacity-30"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 85% 15%, rgba(99,102,241,0.12), transparent 30%), linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px)",
+              backgroundSize:
+                "100% 100%, 36px 36px, 36px 36px",
+            }}
           />
+
+          <div className="relative grid lg:grid-cols-12">
+            {/* LEFT */}
+            <div className="p-6 sm:p-8 lg:col-span-8 lg:border-r border-slate-200/80 dark:border-slate-800/80">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider ${
+                      darkMode
+                        ? "text-cyan-400"
+                        : "text-sky-600"
+                    }`}
+                  >
+                    Pipeline Trajectory
+                  </span>
+
+                  <h2
+                    className={`mt-1 text-xl font-bold tracking-tight ${
+                      darkMode
+                        ? "text-white"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    Placement Pipeline Telemetry
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/jobs")}
+                  className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                    darkMode
+                      ? "text-cyan-400 hover:text-sky-300"
+                      : "text-sky-600 hover:text-sky-700"
+                  }`}
+                >
+                  <span>Manage Pipeline</span>
+                  <ArrowUpRight size={13} />
+                </button>
+              </div>
+
+              {/* Metrics */}
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {/* Applications */}
+                <motion.div
+                  whileHover={{ y: -2 }}
+                  onClick={() =>
+                    navigate("/jobs")
+                  }
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    darkMode
+                      ? "border-slate-800 bg-slate-950/60 hover:border-sky-500/40 hover:bg-slate-900/60"
+                      : "border-slate-100 bg-slate-50/70 hover:border-sky-200 hover:bg-white hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider ${
+                        darkMode
+                          ? "text-slate-400"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      Outreach
+                    </span>
+
+                    <Briefcase
+                      size={13}
+                      className="text-cyan-400"
+                    />
+                  </div>
+
+                  <div
+                    className={`mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl ${
+                      darkMode
+                        ? "text-white"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    {dashboardData.totalApplications}
+                  </div>
+
+                  <p className="mt-1 truncate text-[11px] text-slate-500">
+                    Total Applications
+                  </p>
+                </motion.div>
+
+                {/* Active Jobs */}
+                <motion.div
+                  whileHover={{ y: -2 }}
+                  onClick={() =>
+                    navigate("/jobs")
+                  }
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    darkMode
+                      ? "border-slate-800 bg-slate-950/60 hover:border-blue-500/40 hover:bg-slate-900/60"
+                      : "border-slate-100 bg-slate-50/70 hover:border-blue-200 hover:bg-white hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider ${
+                        darkMode
+                          ? "text-slate-400"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      Active
+                    </span>
+
+                    <Layers
+                      size={13}
+                      className="text-blue-400"
+                    />
+                  </div>
+
+                  <div
+                    className={`mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl ${
+                      darkMode
+                        ? "text-white"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    {dashboardData.stats.activeJobs}
+                  </div>
+
+                  <p className="mt-1 truncate text-[11px] text-slate-500">
+                    In Active Process
+                  </p>
+                </motion.div>
+
+                {/* Interviews */}
+                <motion.div
+                  whileHover={{ y: -2 }}
+                  onClick={() =>
+                    navigate("/interviews")
+                  }
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    darkMode
+                      ? "border-slate-800 bg-slate-950/60 hover:border-sky-500/40 hover:bg-slate-900/60"
+                      : "border-slate-100 bg-slate-50/70 hover:border-sky-200 hover:bg-white hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider ${
+                        darkMode
+                          ? "text-slate-400"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      Interviews
+                    </span>
+
+                    <Video
+                      size={13}
+                      className="text-cyan-400"
+                    />
+                  </div>
+
+                  <div
+                    className={`mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl ${
+                      darkMode
+                        ? "text-white"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    {
+                      dashboardData.quickStats
+                        .interviews
+                    }
+                  </div>
+
+                  <p className="mt-1 truncate text-[11px] text-slate-500">
+                    Interview Rounds
+                  </p>
+                </motion.div>
+
+                {/* Offers */}
+                <motion.div
+                  whileHover={{ y: -2 }}
+                  onClick={() =>
+                    navigate("/jobs")
+                  }
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    darkMode
+                      ? "border-slate-800 bg-slate-950/60 hover:border-emerald-500/40 hover:bg-slate-900/60"
+                      : "border-slate-100 bg-slate-50/70 hover:border-emerald-200 hover:bg-white hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-[10px] font-bold uppercase tracking-wider ${
+                        darkMode
+                          ? "text-slate-400"
+                          : "text-slate-500"
+                      }`}
+                    >
+                      Offers
+                    </span>
+
+                    <CheckCircle2
+                      size={13}
+                      className="text-emerald-400"
+                    />
+                  </div>
+
+                  <div
+                    className={`mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl ${
+                      darkMode
+                        ? "text-emerald-400"
+                        : "text-emerald-600"
+                    }`}
+                  >
+                    {
+                      dashboardData.quickStats
+                        .offers
+                    }
+                  </div>
+
+                  <p className="mt-1 truncate text-[11px] text-slate-500">
+                    Offers Landed
+                  </p>
+                </motion.div>
+              </div>
+
+              {/* Connected Pathway */}
+              <div
+                className={`mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4 text-xs ${
+                  darkMode
+                    ? "border-slate-800 text-slate-400"
+                    : "border-slate-100 text-slate-600"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+
+                  <span>
+                    Goals Completed:{" "}
+                    <strong
+                      className={
+                        darkMode
+                          ? "text-white"
+                          : "text-slate-900"
+                      }
+                    >
+                      {
+                        dashboardData.quickStats
+                          .goalsCompleted
+                      }
+                    </strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
+                  <span>
+                    DSA Records:{" "}
+                    <strong
+                      className={
+                        darkMode
+                          ? "text-white"
+                          : "text-slate-900"
+                      }
+                    >
+                      {
+                        dashboardData.stats
+                          .dsaProblems
+                      }
+                    </strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+
+                  <span>
+                    Verified Resumes:{" "}
+                    <strong
+                      className={
+                        darkMode
+                          ? "text-white"
+                          : "text-slate-900"
+                      }
+                    >
+                      {
+                        dashboardData.stats
+                          .resumes
+                      }
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT */}
+            <div
+              className={`flex flex-col justify-between p-6 sm:p-8 lg:col-span-4 ${
+                darkMode
+                  ? "bg-slate-900/30"
+                  : "bg-slate-50/50"
+              }`}
+            >
+              <div>
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider ${
+                    darkMode
+                      ? "text-emerald-400"
+                      : "text-emerald-700"
+                  }`}
+                >
+                  Conversion Telemetry
+                </span>
+
+                <h3
+                  className={`mt-1 text-base font-bold ${
+                    darkMode
+                      ? "text-white"
+                      : "text-slate-900"
+                  }`}
+                >
+                  Interview Success Rate
+                </h3>
+
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Real conversion efficiency from
+                  pipeline stages to verified technical
+                  outcomes.
+                </p>
+              </div>
+
+              {/* Gauge */}
+              <div className="my-6 flex items-center gap-5">
+                <div
+                  className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full shadow-inner"
+                  style={{
+                    background: `conic-gradient(${
+                      darkMode
+                        ? "#10B981"
+                        : "#059669"
+                    } ${successRateNum}%, ${
+                      darkMode
+                        ? "rgba(255,255,255,0.06)"
+                        : "#E2E8F0"
+                    } 0)`,
+                  }}
+                >
+                  <div
+                    className={`flex h-15 w-15 items-center justify-center rounded-full font-mono text-base font-bold ${
+                      darkMode
+                        ? "bg-[#0E131F] text-emerald-300"
+                        : "bg-white text-emerald-700 shadow-sm"
+                    }`}
+                  >
+                    {
+                      dashboardData.quickStats
+                        .successRate
+                    }
+                    %
+                  </div>
+                </div>
+
+                <div>
+                  <div
+                    className={`text-xl font-bold tracking-tight ${
+                      darkMode
+                        ? "text-white"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    {
+                      dashboardData.quickStats
+                        .offers
+                    }{" "}
+                    {
+                      dashboardData.quickStats
+                        .offers === 1
+                        ? "Offer"
+                        : "Offers"
+                    }
+                  </div>
+
+                  <div className="text-xs text-slate-500">
+                    from{" "}
+                    {
+                      dashboardData.quickStats
+                        .interviews
+                    }{" "}
+                    {
+                      dashboardData.quickStats
+                        .interviews === 1
+                        ? "interview"
+                        : "interviews"
+                    }
+                  </div>
+
+                  <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
+                    <CheckCircle2 size={12} />
+                    <span>
+                      Real Diagnostic Signal
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className={`flex items-center justify-between border-t pt-3 text-xs ${
+                  darkMode
+                    ? "border-slate-800 text-slate-400"
+                    : "border-slate-200 text-slate-600"
+                }`}
+              >
+                <span>
+                  Full Telemetry Diagnostics
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/analytics")
+                  }
+                  className={`inline-flex items-center gap-1 font-semibold ${
+                    darkMode
+                      ? "text-cyan-400 hover:text-sky-300"
+                      : "text-sky-600 hover:text-sky-700"
+                  }`}
+                >
+                  <span>Analytics</span>
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ====================================================== */}
+        {/* HORIZON RADAR + CAPABILITY ENGINE */}
+        {/* ====================================================== */}
+
+        <div className="mt-8 grid gap-7 lg:grid-cols-12">
+          {/* Horizon Radar */}
+          <div
+            className={`flex flex-col justify-between rounded-2xl border p-6 transition-colors sm:p-7 lg:col-span-7 ${
+              darkMode
+                ? "border-slate-800 bg-[#0E131F]"
+                : "border-slate-200 bg-white shadow-sm"
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between border-b border-slate-200/80 pb-4 dark:border-slate-800/80">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border ${
+                      darkMode
+                        ? "border-amber-500/20 bg-amber-500/10 text-amber-400"
+                        : "border-amber-200 bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    <Calendar size={16} />
+                  </div>
+
+                  <div>
+                    <h3
+                      className={`text-base font-bold ${
+                        darkMode
+                          ? "text-white"
+                          : "text-slate-900"
+                      }`}
+                    >
+                      Horizon Radar
+                    </h3>
+
+                    <p className="text-[11px] text-slate-500">
+                      Upcoming interviews and active
+                      goal deadlines
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate("/interviews")
+                    }
+                    className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${
+                      darkMode
+                        ? "border-slate-800 text-slate-300 hover:bg-slate-800"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    + Interview
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate("/goals")
+                    }
+                    className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${
+                      darkMode
+                        ? "border-slate-800 text-slate-300 hover:bg-slate-800"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    + Goal
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800/70">
+                {upcomingMoves.length > 0 ? (
+                  upcomingMoves.map(
+                    (move, index) => {
+                      const Icon = move.icon;
+
+                      return (
+                        <motion.div
+                          key={`${move.type}-${move.id}-${index}`}
+                          whileHover={{ x: 3 }}
+                          onClick={() =>
+                            navigate(move.route)
+                          }
+                          className={`group flex cursor-pointer items-center justify-between rounded-lg px-2 py-3.5 transition-colors ${
+                            darkMode
+                              ? "hover:bg-slate-800/40"
+                              : "hover:bg-slate-50"
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${move.badgeTone}`}
+                            >
+                              <Icon size={14} />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className={`truncate text-xs font-bold ${
+                                  darkMode
+                                    ? "text-slate-200"
+                                    : "text-slate-800"
+                                }`}
+                              >
+                                {move.title}
+                              </p>
+
+                              <span className="text-[11px] text-slate-500">
+                                {move.type}{" "}
+                                {move.time
+                                  ? `• ${move.time}`
+                                  : ""}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold ${
+                                formatDeadlineDate(
+                                  move.date
+                                ) === "Today" ||
+                                formatDeadlineDate(
+                                  move.date
+                                ) === "Tomorrow"
+                                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                                  : darkMode
+                                  ? "border-slate-800 bg-slate-900 text-slate-400"
+                                  : "border-slate-200 bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {formatDeadlineDate(
+                                move.date
+                              )}
+                            </span>
+
+                            <ArrowUpRight
+                              size={13}
+                              className="text-slate-400 opacity-0 transition-opacity group-hover:opacity-100"
+                            />
+                          </div>
+                        </motion.div>
+                      );
+                    }
+                  )
+                ) : (
+                  <div className="py-10 text-center">
+                    <div
+                      className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full ${
+                        darkMode
+                          ? "bg-slate-900 text-slate-500"
+                          : "bg-slate-100 text-slate-400"
+                      }`}
+                    >
+                      <Calendar size={18} />
+                    </div>
+
+                    <p
+                      className={`mt-3 text-xs font-bold ${
+                        darkMode
+                          ? "text-slate-300"
+                          : "text-slate-700"
+                      }`}
+                    >
+                      No Scheduled Interviews or
+                      Goal Deadlines
+                    </p>
+
+                    <p className="mx-auto mt-1 max-w-xs text-[11px] leading-relaxed text-slate-500">
+                      Stay proactive by logging an
+                      upcoming interview or defining
+                      your weekly milestone target.
+                    </p>
+
+                    <div className="mt-4 flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate("/interviews")
+                        }
+                        className="rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-cyan-500"
+                      >
+                        Schedule Interview
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate("/goals")
+                        }
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                          darkMode
+                            ? "border-slate-800 text-slate-300 hover:bg-slate-800"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        Set Goal
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div
+              className={`mt-4 flex items-center justify-between border-t pt-3 text-xs ${
+                darkMode
+                  ? "border-slate-800 text-slate-500"
+                  : "border-slate-100 text-slate-400"
+              }`}
+            >
+              <span>
+                Active Goals:{" "}
+                {dashboardData.activeGoals.length}
+              </span>
+
+              <span>
+                Upcoming Interviews:{" "}
+                {
+                  dashboardData.upcomingInterviews
+                    .length
+                }
+              </span>
+            </div>
+          </div>
+
+          {/* Right Capability Cards */}
+          <div className="flex flex-col justify-between space-y-4 lg:col-span-5">
+            {/* DSA */}
+            <motion.div
+              whileHover={{ y: -2 }}
+              onClick={() => navigate("/dsa")}
+              className={`cursor-pointer rounded-2xl border p-5 transition-all ${
+                darkMode
+                  ? "border-slate-800 bg-[#0E131F] hover:border-emerald-500/40"
+                  : "border-slate-200 bg-white shadow-sm hover:border-emerald-300"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border ${
+                      darkMode
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-600"
+                    }`}
+                  >
+                    <Code2 size={16} />
+                  </div>
+
+                  <div>
+                    <h4
+                      className={`text-sm font-bold ${
+                        darkMode
+                          ? "text-white"
+                          : "text-slate-900"
+                      }`}
+                    >
+                      DSA Problem Solving
+                    </h4>
+
+                    <span className="text-[11px] text-slate-500">
+                      Algorithmic Practice Mastery
+                    </span>
+                  </div>
+                </div>
+
+                <ArrowUpRight
+                  size={14}
+                  className="text-emerald-500"
+                />
+              </div>
+
+              <div className="mt-4 flex items-end justify-between">
+                <div>
+                  <div
+                    className={`text-3xl font-extrabold tracking-tight ${
+                      darkMode
+                        ? "text-white"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    {
+                      dashboardData.stats
+                        .dsaProblems
+                    }
+                  </div>
+
+                  <p className="text-[11px] text-slate-500">
+                    Solved problems recorded in
+                    workspace
+                  </p>
+                </div>
+
+                <span
+                  className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${
+                    darkMode
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  }`}
+                >
+                  {dashboardData.stats
+                    .dsaProblems > 0
+                    ? "Active Practice"
+                    : "Ready to Start"}
+                </span>
+              </div>
+            </motion.div>
+
+            {/* Resumes */}
+            <motion.div
+              whileHover={{ y: -2 }}
+              onClick={() => navigate("/resumes")}
+              className={`cursor-pointer rounded-2xl border p-5 transition-all ${
+                darkMode
+                  ? "border-slate-800 bg-[#0E131F] hover:border-sky-500/40"
+                  : "border-slate-200 bg-white shadow-sm hover:border-sky-300"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg border ${
+                      darkMode
+                        ? "border-sky-500/20 bg-cyan-500/12 text-cyan-400"
+                        : "border-sky-200 bg-sky-50 text-sky-600"
+                    }`}
+                  >
+                    <FileText size={16} />
+                  </div>
+
+                  <div>
+                    <h4
+                      className={`text-sm font-bold ${
+                        darkMode
+                          ? "text-white"
+                          : "text-slate-900"
+                      }`}
+                    >
+                      Resume Profiles
+                    </h4>
+
+                    <span className="text-[11px] text-slate-500">
+                      Personal Document Library
+                    </span>
+                  </div>
+                </div>
+
+                <ArrowUpRight
+                  size={14}
+                  className="text-sky-500"
+                />
+              </div>
+
+              <div className="mt-4 flex items-end justify-between">
+                <div>
+                  <div
+                    className={`text-3xl font-extrabold tracking-tight ${
+                      darkMode
+                        ? "text-white"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    {
+                      dashboardData.stats
+                        .resumes
+                    }
+                  </div>
+
+                  <p className="text-[11px] text-slate-500">
+                    {dashboardData.stats
+                      .resumes === 0
+                      ? "No personal resume on file"
+                      : `Personal file${
+                          dashboardData.stats
+                            .resumes === 1
+                            ? ""
+                            : "s"
+                        } ready`}
+                  </p>
+                </div>
+
+                <span
+                  className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${
+                    darkMode
+                      ? "border-sky-500/30 bg-cyan-500/12 text-sky-300"
+                      : "border-sky-200 bg-sky-50 text-sky-700"
+                  }`}
+                >
+                  {dashboardData.stats
+                    .resumes > 0
+                    ? "Library Synchronized"
+                    : "Upload Required"}
+                </span>
+              </div>
+            </motion.div>
+          </div>
         </div>
-      </div>
 
-      {/* Bottom Row: Quick Stats + Quick Actions */}
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <Card>
-          <div className="flex items-center gap-2 mb-4">
-            <Target size={20} className={darkMode ? 'text-indigo-400' : 'text-indigo-600'} />
-            <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-              Quick Stats
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className={`rounded-lg border p-4 ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}>
-              <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Goals Completed</p>
-              <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                {dashboardData.quickStats.goalsCompleted}
-              </p>
-            </div>
-            <div className={`rounded-lg border p-4 ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}>
-              <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Success Rate</p>
-              <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                {dashboardData.quickStats.successRate}%
-              </p>
-            </div>
-            <div className={`rounded-lg border p-4 ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}>
-              <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Total Interviews</p>
-              <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                {dashboardData.quickStats.interviews}
-              </p>
-            </div>
-            <div className={`rounded-lg border p-4 ${darkMode ? 'border-slate-800' : 'border-gray-200'}`}>
-              <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>Offers Received</p>
-              <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                {dashboardData.quickStats.offers}
-              </p>
-            </div>
-          </div>
-        </Card>
+        {/* ====================================================== */}
+        {/* ACTIVITY STREAM */}
+        {/* ====================================================== */}
 
-        <QuickActions />
+        <section
+          className={`mt-8 rounded-2xl border p-6 transition-colors sm:p-7 ${
+            darkMode
+              ? "border-slate-800 bg-[#0E131F]"
+              : "border-slate-200 bg-white shadow-sm"
+          }`}
+        >
+          <div className="flex items-center justify-between border-b border-slate-200/80 pb-4 dark:border-slate-800/80">
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-lg border ${
+                  darkMode
+                    ? "border-sky-500/20 bg-cyan-500/12 text-cyan-400"
+                    : "border-sky-200 bg-sky-50 text-sky-600"
+                }`}
+              >
+                <TrendingUp size={16} />
+              </div>
+
+              <div>
+                <h3
+                  className={`text-base font-bold ${
+                    darkMode
+                      ? "text-white"
+                      : "text-slate-900"
+                  }`}
+                >
+                  Career Chrono-Stream
+                </h3>
+
+                <p className="text-[11px] text-slate-500">
+                  Chronological activity record across
+                  all DevPilot modules
+                </p>
+              </div>
+            </div>
+
+            <span
+              className={`font-mono text-[11px] ${
+                darkMode
+                  ? "text-slate-400"
+                  : "text-slate-500"
+              }`}
+            >
+              {dashboardData.recentActivity.length}{" "}
+              Events Logged
+            </span>
+          </div>
+
+          <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800/70">
+            {dashboardData.recentActivity.length >
+            0 ? (
+              dashboardData.recentActivity
+                .slice(0, 6)
+                .map((act, index) => {
+                  const Icon =
+                    activityIconMap[act.type] ||
+                    Briefcase;
+
+                  const routeTarget =
+                    act.type === "application"
+                      ? "/jobs"
+                      : act.type === "dsa"
+                      ? "/dsa"
+                      : act.type === "interview"
+                      ? "/interviews"
+                      : act.type === "resume"
+                      ? "/resumes"
+                      : act.type === "goal"
+                      ? "/goals"
+                      : "/jobs";
+
+                  return (
+                    <motion.div
+                      key={`${act.type}-${act.time}-${index}`}
+                      whileHover={{ x: 3 }}
+                      onClick={() =>
+                        navigate(routeTarget)
+                      }
+                      className={`group flex cursor-pointer items-center justify-between rounded-lg px-2 py-3.5 transition-colors ${
+                        darkMode
+                          ? "hover:bg-slate-800/40"
+                          : "hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+                            darkMode
+                              ? "border-slate-800 bg-slate-900 text-slate-300"
+                              : "border-slate-200 bg-slate-50 text-slate-600"
+                          }`}
+                        >
+                          <Icon size={14} />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`truncate text-xs font-semibold ${
+                              darkMode
+                                ? "text-slate-200"
+                                : "text-slate-800"
+                            }`}
+                          >
+                            {act.title}
+                          </p>
+
+                          <span className="text-[11px] capitalize text-slate-500">
+                            {act.type} event
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`font-mono text-[11px] ${
+                            darkMode
+                              ? "text-slate-400"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          {formatRelativeTime(
+                            act.time
+                          )}
+                        </span>
+
+                        <ArrowUpRight
+                          size={13}
+                          className="text-slate-400 opacity-0 transition-opacity group-hover:opacity-100"
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })
+            ) : (
+              <div className="py-12 text-center">
+                <div
+                  className={`mx-auto flex h-10 w-10 items-center justify-center rounded-full ${
+                    darkMode
+                      ? "bg-slate-900 text-slate-500"
+                      : "bg-slate-100 text-slate-400"
+                  }`}
+                >
+                  <Clock size={18} />
+                </div>
+
+                <p
+                  className={`mt-3 text-xs font-bold ${
+                    darkMode
+                      ? "text-slate-300"
+                      : "text-slate-700"
+                  }`}
+                >
+                  Your Activity Stream is Waiting
+                </p>
+
+                <p className="mx-auto mt-1 max-w-xs text-[11px] leading-relaxed text-slate-500">
+                  Add a job application, solve a DSA
+                  problem, log an interview, or
+                  version your resume to build your
+                  career activity log.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ====================================================== */}
+        {/* QUICK LAUNCH */}
+        {/* ====================================================== */}
+
+        <section className="mt-8">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider ${
+                darkMode
+                  ? "text-slate-400"
+                  : "text-slate-500"
+              }`}
+            >
+              DevPilot Sub-Systems Quick Launch
+            </span>
+
+            <span
+              className={`text-xs ${
+                darkMode
+                  ? "text-slate-500"
+                  : "text-slate-400"
+              }`}
+            >
+              6 Integrated Modules
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              {
+                label: "Job Tracker",
+                count: `${dashboardData.stats.activeJobs} Active`,
+                icon: Briefcase,
+                path: "/jobs",
+                color: "text-blue-400",
+              },
+              {
+                label: "DSA Matrix",
+                count: `${dashboardData.stats.dsaProblems} Solved`,
+                icon: Code2,
+                path: "/dsa",
+                color: "text-emerald-400",
+              },
+              {
+                label: "Interviews",
+                count: `${dashboardData.stats.interviews} Logged`,
+                icon: Video,
+                path: "/interviews",
+                color: "text-cyan-400",
+              },
+              {
+                label: "Goals & CTC",
+                count: `${dashboardData.activeGoals.length} Active`,
+                icon: Target,
+                path: "/goals",
+                color: "text-amber-400",
+              },
+              {
+                label: "Resume Vault",
+                count: `${dashboardData.stats.resumes} Files`,
+                icon: FileText,
+                path: "/resumes",
+                color: "text-cyan-400",
+              },
+              {
+                label: "Analytics",
+                count: `${dashboardData.quickStats.successRate}% Rate`,
+                icon: BarChart3,
+                path: "/analytics",
+                color: "text-cyan-400",
+              },
+            ].map((mod) => (
+              <motion.button
+                key={mod.label}
+                type="button"
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() =>
+                  navigate(mod.path)
+                }
+                className={`flex flex-col justify-between rounded-xl border p-3.5 text-left transition-all ${
+                  darkMode
+                    ? "border-slate-800 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900"
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <mod.icon
+                    size={15}
+                    className={mod.color}
+                  />
+
+                  <ArrowUpRight
+                    size={12}
+                    className={`opacity-60 ${
+                      darkMode
+                        ? "text-slate-500"
+                        : "text-slate-400"
+                    }`}
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <div
+                    className={`text-xs font-bold ${
+                      darkMode
+                        ? "text-slate-200"
+                        : "text-slate-800"
+                    }`}
+                  >
+                    {mod.label}
+                  </div>
+
+                  <div className="mt-0.5 font-mono text-[10px] text-slate-500">
+                    {mod.count}
+                  </div>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
 

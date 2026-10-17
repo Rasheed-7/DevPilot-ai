@@ -14,8 +14,8 @@ const AuthSuccess = () => {
     const userParam = searchParams.get("user");
     const error = searchParams.get("error");
 
-    console.log("Token present:", token ? "✅ Yes" : "❌ No");
-    console.log("User param present:", userParam ? "✅ Yes" : "❌ No");
+    console.log("Token present:", token ? "Yes" : "No");
+    console.log("User param present:", userParam ? "Yes" : "No");
     console.log("Error:", error || "None");
 
     if (error) {
@@ -59,7 +59,7 @@ const AuthSuccess = () => {
       // Set axios header
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       
-      console.log("✅ All data stored, redirecting to dashboard...");
+      console.log("All data stored, redirecting to dashboard...");
       toast.success("Welcome! You've successfully signed in with Google.");
       
       // Redirect to dashboard

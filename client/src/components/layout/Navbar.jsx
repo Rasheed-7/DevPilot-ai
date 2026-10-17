@@ -1,20 +1,55 @@
-import { Search, Bell, ChevronDown, LogOut, Settings, UserCircle } from "lucide-react"; // ✅ removed unused 'User'
+import { Bell, ChevronDown, LogOut, Settings, UserCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
+import api from "../../services/api";
 
 const Navbar = ({ title = "Dashboard" }) => {
   const { user, logout } = useAuth();
   const { darkMode } = useTheme();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notifCount, setNotifCount] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(false);
   const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setNotifLoading(true);
+      const { data } = await api.get("/notifications");
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setNotifCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error);
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Defer the initial fetch to a timer callback so setState is not called
+    // synchronously within the effect body (avoids cascading renders).
+    const initialFetch = setTimeout(fetchNotifications, 0);
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => {
+      clearTimeout(initialFetch);
+      clearInterval(interval);
+    };
+  }, [fetchNotifications]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setNotifOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -34,6 +69,13 @@ const Navbar = ({ title = "Dashboard" }) => {
   const handleSettingsClick = () => {
     navigate("/settings");
     setDropdownOpen(false);
+  };
+
+  const handleNotificationClick = () => {
+    setNotifOpen(!notifOpen);
+    if (!notifOpen) {
+      fetchNotifications();
+    }
   };
 
   const getInitials = () => {
@@ -58,7 +100,7 @@ const Navbar = ({ title = "Dashboard" }) => {
         return storedUser.profilePicture;
       }
     } catch {
-      // ignore – no need for the error variable
+      // ignore
     }
     return null;
   };
@@ -66,8 +108,7 @@ const Navbar = ({ title = "Dashboard" }) => {
   const profilePicture = getProfilePicture();
 
   return (
-    <header className={`flex h-16 items-center justify-between border-b px-4 sm:px-6 ${darkMode ? 'border-slate-800 bg-slate-950 text-white' : 'border-gray-200 bg-white text-slate-900'}`}>
-      {/* Page Title */}
+    <header className={`relative z-20 flex h-16 items-center justify-between border-b px-4 sm:px-6 ${darkMode ? 'border-slate-800 bg-slate-950 text-white' : 'border-gray-200 bg-white text-slate-900'}`}>
       <div>
         <h1 className="text-xl font-semibold">{title}</h1>
         <p className={`hidden text-sm sm:block ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
@@ -75,31 +116,82 @@ const Navbar = ({ title = "Dashboard" }) => {
         </p>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className={`hidden items-center gap-2 rounded-lg border px-3 py-2 md:flex ${darkMode ? 'border-slate-700 bg-slate-900' : 'border-gray-300 bg-gray-50'}`}>
-          <Search size={17} className={darkMode ? 'text-slate-400' : 'text-gray-400'} />
-          <input
-            type="text"
-            placeholder="Search..."
-            className={`w-40 bg-transparent text-sm outline-none placeholder:text-slate-500 ${darkMode ? 'text-white' : 'text-slate-900'}`}
-          />
+        <div className="relative z-50" ref={notifRef}>
+          <button
+            onClick={handleNotificationClick}
+            className={`relative rounded-lg p-2 transition hover:bg-slate-800 hover:text-white ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}
+          >
+            <Bell size={20} />
+            {notifCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {notifCount > 9 ? "9+" : notifCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div className={`absolute right-0 mt-2 w-80 rounded-xl border py-2 shadow-2xl z-9999 ${darkMode ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+              <div className={`px-4 py-2 border-b ${darkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+                <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                  Notifications
+                </p>
+              </div>
+
+              {notifLoading ? (
+                <div className="px-4 py-6 text-center">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent mx-auto" />
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="px-4 py-6 text-center">
+                  <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                    No new notifications
+                  </p>
+                </div>
+              ) : (
+                <div className="max-h-64 overflow-y-auto">
+                  {notifications.map((notif) => (
+                    <button
+                      key={`${notif.type}-${notif.id}`}
+                      onClick={() => {
+                        setNotifOpen(false);
+                        if (notif.type === "interview") navigate("/interviews");
+                        if (notif.type === "goal") navigate("/goals");
+                      }}
+                      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition border-b last:border-b-0 ${
+                        darkMode
+                          ? 'border-slate-800 hover:bg-slate-800'
+                          : 'border-gray-100 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`mt-0.5 rounded-lg p-1.5 ${notif.type === "interview" ? "bg-blue-500/10 text-blue-500" : "bg-purple-500/10 text-purple-500"}`}>
+                        {notif.type === "interview" ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                          {notif.title}
+                        </p>
+                        <p className={`mt-0.5 text-xs ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                          {notif.message}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Mobile Search Button */}
-        <button className={`rounded-lg p-2 transition hover:bg-slate-800 hover:text-white md:hidden ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-          <Search size={20} />
-        </button>
-
-        {/* Notifications */}
-        <button className={`relative rounded-lg p-2 transition hover:bg-slate-800 hover:text-white ${darkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-          <Bell size={20} />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-indigo-500" />
-        </button>
-
-        {/* Profile Dropdown */}
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative z-50" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className={`flex items-center gap-2 rounded-lg px-2 py-1.5 transition ${darkMode ? 'hover:bg-slate-800' : 'hover:bg-gray-100'}`}
@@ -124,9 +216,8 @@ const Navbar = ({ title = "Dashboard" }) => {
             <ChevronDown size={16} className={`hidden sm:block transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''} ${darkMode ? 'text-slate-400' : 'text-gray-500'}`} />
           </button>
 
-          {/* Dropdown Menu */}
           {dropdownOpen && (
-            <div className={`absolute right-0 mt-2 w-48 rounded-xl border py-1 shadow-lg ${darkMode ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+            <div className={`absolute right-0 mt-2 w-48 rounded-xl border py-1 shadow-2xl z-9999 ${darkMode ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
               <button
                 onClick={handleProfileClick}
                 className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition ${darkMode ? 'hover:bg-slate-800 text-white' : 'hover:bg-gray-100 text-slate-900'}`}

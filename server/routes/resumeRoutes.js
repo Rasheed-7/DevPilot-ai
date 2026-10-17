@@ -4,10 +4,12 @@ import {
   uploadResume,
   getResumes,
   previewResume,
-  deleteResume, 
+  deleteResume,
   archiveResume,
   downloadResume,
   updateResume,
+  analyzeResume,
+  matchResumeToJob,
 } from '../controllers/resumeController.js';
 import { uploadResume as uploadMiddleware, handleMulterError } from '../middleware/uploadMiddleware.js';
 
@@ -25,5 +27,7 @@ router.get("/:id/preview", protect, previewResume);
 router.patch("/:id/archive", protect, archiveResume);
 router.delete("/:id", protect, deleteResume);
 router.get("/:id/download", protect, downloadResume);
+router.post("/:id/analyze", protect, analyzeResume);
+router.post("/match", protect, matchResumeToJob);
 
 export default router;
