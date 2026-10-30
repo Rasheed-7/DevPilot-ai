@@ -68,8 +68,7 @@ From tracking job applications to analyzing resumes with AI, DevPilot helps you 
 - Paste job descriptions from LinkedIn, company websites, or messages.
 - Select one of your uploaded resumes.
 - Get a match score with strong matches, weak areas, and recommendations.
-- Operates independently of the Job Tracker. Confirm the data-handling behavior against your implementation.
-
+- Analyze resume suitability for specific job opportunities.
 ### DSA Progress
 
 - Log solved problems with topic, difficulty, and platform.
@@ -149,14 +148,6 @@ From tracking job applications to analyzing resumes with AI, DevPilot helps you 
 ---
 
 
-| Page | Screenshot path |
-|---|---|
-| Dashboard | `docs/screenshots/dashboard.png` |
-| Job Tracker | `docs/screenshots/jobs.png` |
-| AI Matcher | `docs/screenshots/matcher.png` |
-| Profile | `docs/screenshots/profile.png` |
-
-
 ---
 
 ## Getting Started
@@ -174,10 +165,9 @@ Follow these instructions to run DevPilot locally.
 
 ### 1. Clone the repository
 
-Replace `your-username` with your GitHub username.
 
 ```bash
-git clone https://github.com/your-username/devpilot.git
+git clone https://github.com/Rasheed-7/devpilot.git
 cd devpilot
 ```
 
@@ -270,7 +260,7 @@ VITE_API_URL=http://localhost:5000/api
 - Ensure Supabase Storage policies and permissions match your application's upload and download requirements.
 - Keep your Gemini API key on the backend. Do not expose it through a `VITE_` environment variable.
 - Add `.env` files to `.gitignore` and commit `.env.example` files containing placeholders instead.
-
+- Never expose your Supabase service role key or other privileged credentials in frontend code.
 ---
 
 ## Project Structure
@@ -311,8 +301,6 @@ devpilot/
 └── README.md
 ```
 
-*Note: This structure is illustrative. Adjust it to match your actual repository.*
-
 ---
 
 ## API Overview
@@ -321,7 +309,7 @@ All API endpoints are prefixed with `/api`.
 
 Protected endpoints require valid authentication through the mechanism configured by the application, such as a JWT in the `Authorization: Bearer <token>` header or an authenticated cookie.
 
-The following endpoints describe the intended API surface. Verify the methods and paths against your backend implementation.
+The following endpoints document the available API routes.
 
 ### Authentication
 
